@@ -47,12 +47,12 @@ h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-0.02em}
 .hero h1{font-weight:800;font-size:clamp(40px,8vw,74px);line-height:1}
 .lead{font-size:clamp(17px,2.4vw,21px);color:var(--muted-dark);max-width:620px;margin:22px 0 28px}
 /* Foto del encabezado: sobre negro, recortada al costado */
-.hero-photo{position:relative;z-index:1;width:100%;height:400px;overflow:hidden;background:#000}
+.hero-photo{display:none;position:relative;z-index:1;width:100%;height:400px;overflow:hidden;background:#000}
 .hero-photo img{position:absolute;top:0;left:50%;height:560px;width:auto;transform:translateX(-34%);display:block}
 .hero-photo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,#000 0%,rgba(0,0,0,0) 30%),linear-gradient(90deg,#000 0%,rgba(0,0,0,0) 22%)}
 @media(min-width:860px){
   .hero{min-height:760px}
-  .hero-photo{position:absolute;top:0;right:0;width:400px;height:820px}
+  .hero-photo{display:block;position:absolute;top:0;right:0;width:400px;height:820px}
   .hero-photo img{left:0;transform:none;height:820px}
   .hero-photo::after{background:linear-gradient(90deg,#000 0%,rgba(0,0,0,0) 20%),linear-gradient(180deg,#000 0%,rgba(0,0,0,0) 12%),linear-gradient(0deg,#000 0%,rgba(0,0,0,0) 18%)}
 }
@@ -383,6 +383,11 @@ dialog[open]{animation:pop .28s ease-out}
           <div><label for="correo">Correo</label><input id="correo" name="correo" type="email" autocomplete="email" required></div>
         </div>
         <div class="row">
+          <div><label for="celular">Celular / WhatsApp</label><input id="celular" name="celular" type="tel" inputmode="tel" autocomplete="tel" placeholder="+591 7XXXXXXX" required></div>
+          <div><label for="idioma">Idioma de preferencia</label>
+            <select id="idioma" name="idioma"><option>Español</option><option>Português</option><option>English</option></select></div>
+        </div>
+        <div class="row">
           <div><label for="motivo">¿Qué lo trae por aquí?</label>
             <select id="motivo" name="motivo" required>
               <option value="">Seleccione</option>
@@ -393,14 +398,10 @@ dialog[open]{animation:pop .28s ease-out}
               <option>Asesoría o mentoría</option>
               <option>Otro motivo</option>
             </select></div>
-          <div><label for="idioma">Idioma de preferencia</label>
-            <select id="idioma" name="idioma"><option>Español</option><option>Português</option><option>English</option></select></div>
-        </div>
-        <div class="row">
-          <div><label for="resultado">Resultado que espera</label><input id="resultado" name="resultado" placeholder="Ej.: duplicar ventas en línea"></div>
           <div><label for="plazo">Plazo estimado</label>
             <select id="plazo" name="plazo"><option value="">Seleccione</option><option>Menos de 1 mes</option><option>1 a 3 meses</option><option>3 a 6 meses</option><option>Más de 6 meses</option></select></div>
         </div>
+        <div><label for="resultado">Resultado que espera</label><input id="resultado" name="resultado" placeholder="Ej.: duplicar ventas en línea"></div>
         <div><label for="mensaje">Cuénteme más (opcional)</label><textarea id="mensaje" name="mensaje"></textarea></div>
         <input class="hp" name="web" tabindex="-1" autocomplete="off" aria-hidden="true">
         <div><button class="btn" type="submit" id="enviar">Solicitar mi diagnóstico</button><div id="estado" role="status" aria-live="polite"></div></div>
@@ -438,8 +439,8 @@ form.addEventListener('submit', function(e){
   e.preventDefault();
   estado.textContent = '';
   if(form.web.value){ return; }
-  if(!form.nombre.value.trim() || !form.correo.value || !form.correo.validity.valid || !form.motivo.value){
-    estado.textContent = 'Por favor complete nombre, un correo válido y el motivo.';
+  if(!form.nombre.value.trim() || !form.correo.value || !form.correo.validity.valid || form.celular.value.replace(/\D/g,'').length < 7 || !form.motivo.value){
+    estado.textContent = 'Por favor complete nombre, un correo válido, su celular o WhatsApp y el motivo.';
     return;
   }
   if(ENDPOINT.indexOf('PEGUE_AQUI') === 0){
