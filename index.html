@@ -404,6 +404,7 @@ dialog[open]{animation:pop .28s ease-out}
         <div><label for="resultado">Resultado que espera</label><input id="resultado" name="resultado" placeholder="Ej.: duplicar ventas en línea"></div>
         <div><label for="mensaje">Cuénteme más (opcional)</label><textarea id="mensaje" name="mensaje"></textarea></div>
         <input class="hp" name="web" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <input type="hidden" name="fuente" id="fuente"><input type="hidden" name="campania" id="campania"><input type="hidden" name="contenido" id="contenido">
         <div><button class="btn" type="submit" id="enviar">Solicitar mi diagnóstico</button><div id="estado" role="status" aria-live="polite"></div></div>
       </form>
     </div>
@@ -435,6 +436,70 @@ var form = document.getElementById('form');
 var estado = document.getElementById('estado');
 var boton = document.getElementById('enviar');
 
+// Agenda de citas (Google Calendar) y Google Analytics 4 (opcional: pegue aquí el ID G-XXXXXXXXXX)
+var URL_AGENDA = 'https://calendar.google.com/calendar/appointments/schedules/AcZssZ0GzPd2T4sUTAFK6BQpCMGX4hDHPTQEhT0haFZuMlYSOtL8vQL4BCnLnWCkqbpZwW0zg6h-tuBk';
+var GA_ID = '';
+if(GA_ID){
+  var gs = document.createElement('script'); gs.async = true; gs.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID; document.head.appendChild(gs);
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function(){ dataLayer.push(arguments); };
+  gtag('js', new Date()); gtag('config', GA_ID);
+}
+
+// Origen de la visita: primero los parámetros utm del enlace, luego el sitio de referencia
+var origen = (function(){
+  var q = new URLSearchParams(location.search);
+  var o = { fuente:'', medio:'', campania:'', contenido:'' };
+  try { var g = JSON.parse(sessionStorage.getItem('origen') || 'null'); if(g){ o = g; } } catch(e){}
+  if(q.get('utm_source')){
+    o = { fuente:q.get('utm_source'), medio:q.get('utm_medium') || '', campania:q.get('utm_campaign') || '', contenido:q.get('utm_content') || '' };
+  } else if(!o.fuente){
+    var ref = '';
+    try { ref = document.referrer ? new URL(document.referrer).hostname.replace(/^www\./, '') : ''; } catch(e){}
+    o.fuente = ref || 'directo';
+  }
+  try { sessionStorage.setItem('origen', JSON.stringify(o)); } catch(e){}
+  return o;
+})();
+var sesion = (function(){
+  try {
+    var s = sessionStorage.getItem('sesion');
+    if(!s){ s = Math.random().toString(36).slice(2, 10); sessionStorage.setItem('sesion', s); }
+    return s;
+  } catch(e){ return ''; }
+})();
+var dispositivo = window.matchMedia('(max-width:859px)').matches ? 'celular' : 'escritorio';
+
+function llenarOrigen(){
+  document.getElementById('fuente').value = origen.fuente;
+  document.getElementById('campania').value = origen.campania;
+  document.getElementById('contenido').value = origen.contenido;
+}
+llenarOrigen();
+
+function registrar(evento, detalle){
+  if(ENDPOINT.indexOf('PEGUE_AQUI') === 0){ return; }
+  var d = new URLSearchParams({ tipo:'evento', evento:evento, detalle:detalle || '', fuente:origen.fuente, medio:origen.medio, campania:origen.campania, contenido:origen.contenido, referente:(document.referrer || '').slice(0, 120), dispositivo:dispositivo, sesion:sesion });
+  try { fetch(ENDPOINT, { method:'POST', mode:'no-cors', keepalive:true, body:d }); } catch(e){}
+  if(window.gtag){ try { gtag('event', evento, { detalle: detalle || '' }); } catch(e){} }
+}
+
+// Una visita por sesión
+try {
+  if(!sessionStorage.getItem('visita_enviada')){ sessionStorage.setItem('visita_enviada', '1'); registrar('visita', 'inicio'); }
+} catch(e){ registrar('visita', 'inicio'); }
+
+// Clics en botones de reserva y primer uso del formulario
+document.addEventListener('click', function(e){
+  var a = e.target.closest ? e.target.closest('a[href="#diagnostico"]') : null;
+  if(a){
+    registrar('clic_cta', (a.textContent || '').trim().slice(0, 60));
+    if(a.id === 'pop-cta'){ registrar('pop_clic'); }
+  }
+});
+var formIniciado = false;
+form.addEventListener('input', function(){ if(!formIniciado){ formIniciado = true; registrar('form_inicio'); } });
+
 form.addEventListener('submit', function(e){
   e.preventDefault();
   estado.textContent = '';
@@ -452,7 +517,17 @@ form.addEventListener('submit', function(e){
   fetch(ENDPOINT, { method:'POST', mode:'no-cors', body:datos })
     .then(function(){
       form.reset();
-      estado.textContent = 'Solicitud enviada. Me comunicaré con usted para agendar el diagnóstico.';
+      llenarOrigen();
+      estado.textContent = 'Solicitud enviada. Le escribiré por WhatsApp en un máximo de 24 horas.';
+      if(window.gtag){ try { gtag('event', 'generate_lead'); } catch(e){} }
+      if(URL_AGENDA){
+        estado.appendChild(document.createTextNode(' Si prefiere, elija su horario ahora: '));
+        var ag = document.createElement('a');
+        ag.href = URL_AGENDA; ag.target = '_blank'; ag.rel = 'noopener'; ag.textContent = 'Elegir mi horario';
+        ag.style.cssText = 'color:#B8892B;font-weight:700';
+        ag.addEventListener('click', function(){ registrar('agenda_clic'); });
+        estado.appendChild(ag);
+      }
     })
     .catch(function(){
       estado.textContent = 'No se pudo enviar. Inténtelo de nuevo en unos minutos.';
@@ -477,6 +552,7 @@ form.addEventListener('submit', function(e){
   function abrir(){
     if(yaVisto() || tocoForm || formVisible() || pop.open){ return; }
     marcar();
+    registrar('pop_visto');
     pop.showModal();
   }
   function cerrar(){ if(pop.open){ pop.close(); } }
